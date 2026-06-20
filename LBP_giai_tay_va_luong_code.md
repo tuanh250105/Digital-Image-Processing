@@ -8,7 +8,7 @@ Tài liệu này được biên soạn nhằm giúp bạn và đồng nghiệp d
 1. [HƯỚNG DẪN CÁC BƯỚC GIẢI TAY LBP](#1-hướng-dẫn-các-bước-giải-tay-lbp)
 2. [VÍ DỤ SỐ MINH HỌA GIẢI TAY CHI TIẾT](#2-ví-dụ-số-minh-họa-giải-tay-chi-tiết)
 3. [LUỒNG HOẠT ĐỘNG CỦA MÃ NGUỒN (WORKFLOW)](#3-luồng-hoạt-động-của-mã-nguồn-workflow)
-4. [SỰ TƯƠNG ĐỒNG GIỮA CODE VÒNG LẶP VÀ VECTOR HÓA](#4-sự-tương-đồng-giữa-code-vòng-lặp-và-vector-hóa)
+4. [SO SÁNH CHI TIẾT MÃ NGUỒN: VÒNG LẶP VÀ VECTOR HÓA](#4-so-sánh-chi-tiết-mã-nguồn-vòng-lặp-và-vector-hóa)
 
 ---
 
@@ -113,39 +113,121 @@ graph TD
 
 ---
 
-## 4. SỰ TƯƠNG ĐỒNG GIỮA CODE VÒNG LẶP VÀ VECTOR HÓA
+## 4. SO SÁNH CHI TIẾT MÃ NGUỒN: VÒNG LẶP VÀ VECTOR HÓA
 
-Đồng nghiệp của bạn có thể thắc mắc: *"Làm thế nào để đảm bảo code Vector hóa chạy nhanh hơn nhưng kết quả vẫn giống hệt code vòng lặp?"*  
-Dưới đây là cách ánh xạ trực tiếp giữa hai phiên bản mã nguồn:
+Phần này cung cấp mã nguồn đầy đủ của hai giải pháp và phân tích sự tương ứng dòng lệnh để bạn và đồng nghiệp dễ dàng đối chiếu.
 
-### 4.1. Cách tính tọa độ lân cận
-* **Vòng lặp (Từng pixel):** 
-  Tính tọa độ `xp, yp` cho từng điểm của một pixel cụ thể.
-* **Vector hóa (Toàn ảnh cùng lúc):**
-  Sử dụng `np.meshgrid` để tạo ra một lưới chứa tọa độ `(x, y)` của tất cả pixel trên ảnh. Khi thực hiện phép cộng tọa độ với $\cos$ và $\sin$, NumPy sẽ cộng đồng thời cho tất cả các điểm trên lưới bằng một phép toán ma trận duy nhất:
-  ```python
-  xp = c_idx + R * np.cos(goc)  # Cộng đồng thời cho 2 triệu pixel
-  ```
+### 4.1. Bản đầy đủ của Mã nguồn Vòng lặp (Loop-based)
+```python
+def noi_suy_song_tuyen(anh, y, x):
+    rows, cols = anh.shape
+    x0, y0 = int(np.floor(x)), int(np.floor(y))
+    x1, y1 = x0 + 1, y0 + 1
+    x0 = np.clip(x0, 0, cols-1);  x1 = np.clip(x1, 0, cols-1)
+    y0 = np.clip(y0, 0, rows-1);  y1 = np.clip(y1, 0, rows-1)
+    dx = x - np.floor(x)
+    dy = y - np.floor(y)
+    f00 = anh[y0, x0]
+    f01 = anh[y0, x1]
+    f10 = anh[y1, x0]
+    f11 = anh[y1, x1]
+    return (1-dy)*(1-dx)*f00 + (1-dy)*dx*f01 + dy*(1-dx)*f10 + dy*dx*f11
 
-### 4.2. Nội suy song tuyến
-* **Vòng lặp:**
-  Dùng hàm `np.floor` và ép kiểu `int()` để lấy giá trị từng pixel lân cận tại vị trí cụ thể.
-* **Vector hóa:**
-  Sử dụng các mảng chỉ mục NumPy. Hàm `np.clip` giới hạn cả mảng tọa độ. Dòng lệnh `f00 = anh[y0, x0]` sẽ truy xuất đồng thời giá trị của 2 triệu pixel tại góc trái-trên dưới dạng ma trận:
-  ```python
-  # Trong code vectorized:
-  f00 = anh[y0, x0]  # Lấy giá trị góc trái-trên cho toàn bộ 2 triệu pixel cùng lúc
-  ```
+def tinh_lbp_mot_pixel(anh, cy, cx, P, R):
+    gc = anh[cy, cx]
+    bits = []
+    for p in range(P):
+        goc = 2 * np.pi * p / P
+        xp  = cx + R * np.cos(goc)
+        yp  = cy - R * np.sin(goc)
+        gp  = noi_suy_song_tuyen(anh, yp, xp)
+        bits.append(1 if gp >= gc else 0)
+    so_nhom = P // 8
+    gia_tri_nhom = []
+    for g in range(so_nhom):
+        nhom = bits[g*8 : (g+1)*8]
+        val  = sum(b * (2**i) for i, b in enumerate(nhom))
+        gia_tri_nhom.append(val)
+    return max(gia_tri_nhom)
 
-### 4.3. So sánh bit & Tách nhóm lấy MAX
-* **Vòng lặp:**
-  Dùng câu lệnh điều kiện `1 if gp >= gc else 0` và lưu vào mảng `bits` rồi dùng hàm `sum()` để quy đổi sang thập phân.
-* **Vector hóa:**
-  Sử dụng toán tử so sánh ma trận của NumPy: `(gp >= gc).astype(np.uint8)`. Phép quy đổi hệ cơ số 2 được thực hiện bằng cách nhân ma trận bit với lũy thừa của 2 và cộng dồn. Việc lấy giá trị lớn nhất giữa các nhóm được thực hiện cực nhanh qua hàm `np.maximum.reduce()`:
-  ```python
-  # Trong code vectorized:
-  res = np.maximum.reduce(ma_tran_nhom)  # Tìm giá trị lớn nhất giữa các nhóm của 2 triệu pixel cùng lúc
-  ```
+def tinh_lbp_toan_anh_vong_lap(anh_xam, P, R):
+    rows, cols = anh_xam.shape
+    anh_lbp = np.zeros((rows, cols), dtype=np.uint8)
+    bien = int(np.ceil(R))
+    # Sử dụng 2 vòng lặp lồng nhau duyệt qua từng pixel của ảnh
+    for cy in range(bien, rows - bien):
+        for cx in range(bien, cols - bien):
+            anh_lbp[cy, cx] = tinh_lbp_mot_pixel(anh_xam, cy, cx, P, R)
+    return anh_lbp
+```
 
-> [!TIP]
-> Nhờ tính toán đồng thời trên bộ nhớ đệm ma trận liên tục của ngôn ngữ C dưới nền, code Vector hóa loại bỏ hoàn toàn thời gian hao phí (overhead) của trình thông dịch Python trong các vòng lặp, mang lại tốc độ xử lý tức thời mà không thay đổi bất kỳ kết quả toán học nào của thuật toán.
+### 4.2. Bản đầy đủ của Mã nguồn Vector hóa (Vectorized)
+```python
+def noi_suy_song_tuyen_vectorized(anh, y_coords, x_coords):
+    rows, cols = anh.shape
+    x0 = np.floor(x_coords).astype(np.int32)
+    y0 = np.floor(y_coords).astype(np.int32)
+    x1 = x0 + 1
+    y1 = y0 + 1
+    x0 = np.clip(x0, 0, cols - 1)
+    x1 = np.clip(x1, 0, cols - 1)
+    y0 = np.clip(y0, 0, rows - 1)
+    y1 = np.clip(y1, 0, rows - 1)
+    dx = x_coords - x0
+    dy = y_coords - y0
+    f00 = anh[y0, x0]
+    f01 = anh[y0, x1]
+    f10 = anh[y1, x0]
+    f11 = anh[y1, x1]
+    return (1 - dy) * (1 - dx) * f00 + (1 - dy) * dx * f01 + dy * (1 - dx) * f10 + dy * dx * f11
+
+def tinh_lbp_vectorized(anh_xam, P, R):
+    rows, cols = anh_xam.shape
+    anh_lbp = np.zeros((rows, cols), dtype=np.uint8)
+    bien = int(np.ceil(R))
+    # Tạo lưới tọa độ cho tất cả pixel hợp lệ cùng lúc (Không dùng vòng lặp pixel)
+    r_idx, c_idx = np.meshgrid(
+        np.arange(bien, rows - bien),
+        np.arange(bien, cols - bien),
+        indexing='ij'
+    )
+    gc = anh_xam[r_idx, c_idx]
+    bits = []
+    # Chỉ lặp qua P lân cận
+    for p in range(P):
+        goc = 2 * np.pi * p / P
+        xp = c_idx + R * np.cos(goc)
+        yp = r_idx - R * np.sin(goc)
+        gp = noi_suy_song_tuyen_vectorized(anh_xam, yp, xp)
+        bit_p = (gp >= gc).astype(np.uint8)
+        bits.append(bit_p)
+    # Tách nhóm và lấy MAX trên ma trận
+    so_nhom = P // 8
+    ma_tran_nhom = []
+    for g in range(so_nhom):
+        nhom_bits = bits[g * 8 : (g + 1) * 8]
+        val = np.zeros_like(r_idx, dtype=np.uint32)
+        for i, b in enumerate(nhom_bits):
+            val += b.astype(np.uint32) * (2 ** i)
+        ma_tran_nhom.append(val)
+    if so_nhom == 1:
+        res = ma_tran_nhom[0]
+    else:
+        res = np.maximum.reduce(ma_tran_nhom)
+    anh_lbp[r_idx, c_idx] = res.astype(np.uint8)
+    return anh_lbp
+```
+
+---
+
+### 4.3. Bảng ánh xạ so sánh chi tiết cơ chế hoạt động
+
+| Bước xử lý thuật toán | Cơ chế trong Code Vòng lặp | Cơ chế tương ứng trong Code Vector hóa | Giải thích sự tương đương |
+|:---|:---|:---|:---|
+| **1. Xác định vùng pixel** | Lồng 2 vòng lặp duyệt qua tọa độ đơn lẻ `cy` và `cx`. | Dùng `np.meshgrid` để tạo lưới ma trận tọa độ `r_idx` và `c_idx`. | Lưới ma trận chứa tọa độ của toàn bộ $2.07$ triệu điểm ảnh. Khi tính toán ma trận, NumPy sẽ xử lý đồng thời tất cả các tọa độ này. |
+| **2. Tọa độ điểm lân cận** | Tính `xp` và `yp` dạng số thực đơn lẻ cho góc $\theta_p$. | Tính `xp` và `yp` dạng mảng 2D cho góc $\theta_p$. | Thay vì lấy tọa độ lân cận cho 1 điểm, ta tạo ra bản đồ tọa độ lân cận cho toàn bộ điểm ảnh trên lưới. |
+| **3. Lấy 4 điểm nguyên** | Lấy chỉ mục mảng đơn lẻ: `x0 = int(np.floor(x))`. | Lấy chỉ mục mảng dạng mảng: `x0 = np.floor(x_coords).astype(np.int32)`. | Trích xuất các ma trận chỉ mục nguyên tương ứng với các góc trái-trên, phải-trên... của toàn bộ pixel. |
+| **4. Lấy độ sáng góc** | Truy cập 4 pixel đơn lẻ: `f00 = anh[y0, x0]`. | Sử dụng Advanced Indexing: `f00 = anh[y0, x0]` trên ma trận. | `f00` trong bản vector hóa là một ma trận 2D chứa độ sáng của góc trái-trên của tất cả các pixel cùng lúc. |
+| **5. So sánh điều kiện** | Sử dụng biểu thức logic: `1 if gp >= gc else 0`. | Sử dụng phép so sánh ma trận logic: `(gp >= gc).astype(np.uint8)`. | Kết quả trả về là một ma trận nhị phân 2D gồm các số `0` và `1` (thay vì chỉ trả về một số nhị phân đơn lẻ). |
+| **6. Chuyển thập phân** | Dùng hàm `sum()` của Python để tính tổng giá trị từng bit nhân $2^i$. | Thực hiện nhân ma trận bit với lũy thừa cơ số 2: `val += b * (2 ** i)`. | Quy đổi toàn bộ mảng bit nhị phân thành ma trận giá trị thập phân tương ứng. |
+| **7. Lấy MAX nhóm** | Dùng hàm `max(V1, V2...)` trên danh sách. | Dùng hàm `np.maximum.reduce([V1, V2...])` trên ma trận. | So sánh phần tử với phần tử (element-wise) giữa các ma trận nhóm để giữ lại giá trị LBP lớn nhất cho mỗi pixel. |
