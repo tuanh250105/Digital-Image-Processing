@@ -102,7 +102,7 @@ graph TD
     A([Bắt đầu chương trình]) --> B[Đọc danh sách ảnh trong thư mục anh_xlas]
     B --> C{Còn ảnh cần xử lý?}
     C -- Hết ảnh --> Z([Kết thúc chương trình])
-    C -- Còn ảnh --> D[Đọc ảnh hiện tại & Chuyển đổi sang ảnh xám bằng công thức ITU-R BT.601]
+    C -- Còn ảnh --> D[Đọc ảnh hiện tại & Đọc trực tiếp dưới dạng ảnh xám bằng PIL .convert('L')]
     D --> E[Lặp qua 5 cấu hình LBP]
     E --> F[Tính toán LBP toàn ảnh sử dụng Vector hóa bằng NumPy]
     F --> G[Lưu kết quả ảnh LBP vào thư mục ket_qua_lbp]
