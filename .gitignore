@@ -1,0 +1,5 @@
+output_cau1/
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.vscode/
