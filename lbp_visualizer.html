@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LBP – Local Binary Patterns Visualizer (Nhập Ma Trận 3x3)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f17;--surface:#151824;--card:#1c2133;--border:#2a3150;
+  --accent:#6c63ff;--accent2:#00d4aa;--accent3:#ff6b6b;--accent4:#ffd166;
+  --text:#e8eaf6;--muted:#8892b0;--bit1:#00d4aa;--bit0:#ff6b6b;
+  --kw:#c792ea;--fn:#82aaff;--str:#c3e88d;--num:#f78c6c;--cmt:#546e7a;--op:#89ddff;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* HEADER */
+header{background:linear-gradient(135deg,#1a1040,#0d1b3e,#0a2040);border-bottom:1px solid var(--border);
+  padding:14px 28px;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;}
+header::before{content:'';position:absolute;top:-60px;left:-60px;width:180px;height:180px;
+  background:radial-gradient(circle,rgba(108,99,255,.3),transparent 70%);border-radius:50%;animation:pulse 4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+.hicon{width:42px;height:42px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+header h1{font-size:1.35rem;font-weight:700;}
+header p{font-size:.78rem;color:var(--muted);margin-top:2px;}
+.badge{margin-left:auto;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.4);
+  color:#a89fff;font-size:.7rem;padding:3px 10px;border-radius:18px;font-weight:500;flex-shrink:0;}
+
+/* LAYOUT */
+.main{display:grid;grid-template-columns:250px 1fr 310px;gap:12px;padding:12px 20px;}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px 16px;}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;}
+.ct{font-size:.7rem;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);
+  font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+
+/* CONTROLS */
+.cg{margin-bottom:12px;}
+.cl{font-size:.76rem;color:var(--muted);margin-bottom:5px;font-weight:500;}
+.bg{display:flex;gap:4px;flex-wrap:wrap;}
+.bo{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);
+  color:var(--muted);font-size:.74rem;cursor:pointer;transition:all .2s;font-family:'JetBrains Mono',monospace;}
+.bo:hover{border-color:var(--accent);color:var(--text);}
+.bo.active{background:rgba(108,99,255,.15);border-color:var(--accent);color:#a89fff;font-weight:600;}
+.btn-run{width:100%;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),#9c8fff);
+  color:#fff;font-size:.84rem;font-weight:600;cursor:pointer;transition:all .2s;margin-top:5px;}
+.btn-run:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,99,255,.4);}
+.btn-run:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.btn-reset{width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-size:.76rem;cursor:pointer;transition:all .2s;margin-top:5px;}
+.btn-reset:hover{border-color:var(--accent3);color:var(--accent3);}
+.speed-slider{width:100%;accent-color:var(--accent);cursor:pointer;}
+
+/* PRESETS */
+.preset-btns{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;}
+.preset-btn{padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);
+  color:var(--muted);font-size:.68rem;cursor:pointer;transition:all .2s;flex:1;min-width:65px;text-align:center;}
+.preset-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+
+/* MATRIX INPUTS */
+.matrix-input-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:240px;margin:0 auto 10px;}
+.matrix-input-grid input{width:100%;height:46px;background:var(--surface);border:2px solid var(--border);
+  border-radius:8px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:1.05rem;font-weight:700;
+  text-align:center;outline:none;transition:all .2s;}
+.matrix-input-grid input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.25);background:#1a1d2c;}
+.matrix-input-grid input.center-cell{border-color:var(--accent4);background:rgba(255,209,102,.04);}
+.matrix-input-grid input.center-cell:focus{border-color:var(--accent4);box-shadow:0 0 0 3px rgba(255,209,102,.25);}
+
+/* PIXEL GRID */
+.grid-section{display:flex;flex-direction:column;align-items:center;gap:10px;}
+#pixel-grid{display:grid;gap:4px;position:relative;}
+.pixel-cell{width:76px;height:76px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;
+  transition:all .18s;border:2px solid transparent;position:relative;user-select:none;}
+.pixel-cell.center{border-color:var(--accent4)!important;box-shadow:0 0 0 3px rgba(255,209,102,.3);transform:scale(1.08);z-index:3;}
+.pixel-cell.neighbor-active{border-color:var(--accent2)!important;box-shadow:0 0 0 3px rgba(0,212,170,.35);transform:scale(1.06);z-index:2;animation:nPulse .4s ease;}
+.pixel-cell.neighbor-done{border-color:rgba(0,212,170,.3)!important;}
+@keyframes nPulse{0%{box-shadow:0 0 0 0 rgba(0,212,170,.6)}100%{box-shadow:0 0 0 8px rgba(0,212,170,0)}}
+.bit-badge{position:absolute;top:-8px;right:-8px;width:18px;height:18px;border-radius:50%;
+  font-size:.62rem;font-weight:700;display:flex;align-items:center;justify-content:center;animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
+.bit-1{background:var(--bit1);color:#001a14;}.bit-0{background:var(--bit0);color:#1a0000;}
+.canvas-wrap{position:relative;display:inline-block;}
+#circle-canvas{position:absolute;top:0;left:0;pointer-events:none;}
+.step-desc{background:var(--surface);border-left:3px solid var(--accent);border-radius:0 7px 7px 0;
+  padding:8px 12px;font-size:.75rem;color:var(--muted);line-height:1.6;min-height:38px;width:100%;}
+.step-desc strong{color:var(--text);}
+.grid-legend{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:.68rem;color:var(--muted);}
+.leg-dot{width:10px;height:10px;border-radius:3px;}
+
+/* RIGHT PANEL */
+.rp{display:flex;flex-direction:column;gap:10px;}
+.step-bar{display:flex;gap:3px;margin-bottom:2px;}
+.step-item{flex:1;text-align:center;padding:6px 2px;border-radius:6px;border:1px solid var(--border);
+  font-size:.6rem;color:var(--muted);transition:all .3s;}
+.step-item.active{background:rgba(108,99,255,.15);border-color:var(--accent);color:#a89fff;font-weight:600;}
+.step-item.done{background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.3);color:var(--accent2);}
+.bit-display{min-height:46px;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:8px 11px;display:flex;align-items:center;flex-wrap:wrap;gap:3px;}
+.bit-char{width:24px;height:28px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:700;animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
+.bit-char.b1{background:rgba(0,212,170,.15);color:var(--bit1);border:1px solid rgba(0,212,170,.3);}
+.bit-char.b0{background:rgba(255,107,107,.15);color:var(--bit0);border:1px solid rgba(255,107,107,.3);}
+.bit-sep{width:2px;height:24px;background:var(--border);border-radius:2px;margin:0 2px;}
+.bit-placeholder{color:var(--muted);font-size:.74rem;font-style:italic;}
+.groups-wrap{display:flex;flex-direction:column;gap:6px;}
+.group-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;display:flex;align-items:center;gap:8px;transition:all .3s;opacity:.4;}
+.group-card.active-group{opacity:1;border-color:var(--accent);background:rgba(108,99,255,.06);}
+.group-card.max-group{border-color:var(--accent4);background:rgba(255,209,102,.06);}
+.group-label{font-size:.65rem;color:var(--muted);font-weight:600;min-width:44px;}
+.group-bits{display:flex;gap:2px;flex:1;}
+.group-bit{width:18px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:.64rem;font-weight:700;}
+.gb1{background:rgba(0,212,170,.15);color:var(--bit1);}.gb0{background:rgba(255,107,107,.15);color:var(--bit0);}
+.group-arrow{color:var(--muted);font-size:.8rem;}
+.group-val{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:700;min-width:34px;text-align:right;}
+.max-badge{background:var(--accent4);color:#1a0f00;font-size:.58rem;font-weight:700;padding:2px 5px;border-radius:8px;}
+.result-box{background:linear-gradient(135deg,rgba(108,99,255,.15),rgba(0,212,170,.1));
+  border:1px solid rgba(108,99,255,.4);border-radius:12px;padding:14px;text-align:center;
+  display:none;animation:fadeUp .5s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.result-label{font-size:.68rem;color:var(--muted);font-weight:500;margin-bottom:5px;letter-spacing:.8px;text-transform:uppercase;}
+.result-value{font-size:2.8rem;font-weight:700;font-family:'JetBrains Mono',monospace;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.result-sub{font-size:.7rem;color:var(--muted);margin-top:5px;}
+
+/* ═══════════════════════════════════════════════
+   CODE TRACE PANEL
+   ═══════════════════════════════════════════════ */
+.code-panel{font-family:'JetBrains Mono',monospace;font-size:.76rem;line-height:1.8;
+  background:#0a0c14;border-radius:10px;padding:14px;overflow:auto;max-height:320px;position:relative;}
+.code-line{display:flex;gap:10px;padding:1px 6px;border-radius:4px;transition:all .3s;white-space:pre;}
+.code-line .ln{color:#3a4060;user-select:none;min-width:24px;text-align:right;flex-shrink:0;}
+.code-line .lc{flex:1;}
+.code-line.active-line{background:rgba(255,209,102,.12);border-left:3px solid var(--accent4);}
+.code-line.active-line .ln{color:var(--accent4);}
+.code-line.done-line{background:rgba(0,212,170,0.05);}
+/* Syntax colors */
+.kw{color:var(--kw);} .fn{color:var(--fn);} .str{color:var(--str);}
+.num{color:var(--num);} .cmt{color:var(--cmt);font-style:italic;} .op{color:var(--op);}
+.vr{color:#eeffff;} .param{color:#ffcb6b;}
+
+/* FORMULA PANEL */
+.formula-panel{display:flex;flex-direction:column;gap:10px;}
+.formula-step{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px 14px;opacity:.35;transition:all .4s;}
+.formula-step.active{opacity:1;border-color:var(--accent);background:rgba(108,99,255,.05);}
+.formula-step.done{opacity:.7;border-color:rgba(0,212,170,.3);}
+.fs-title{font-size:.68rem;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);
+  font-weight:600;margin-bottom:8px;}
+.fs-math{font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:1.9;color:var(--text);}
+.fs-math .val{color:var(--num);font-weight:600;}
+.fs-math .eq{color:var(--op);}
+.fs-math .result{color:var(--accent2);font-weight:700;}
+.fs-math .bit-result{padding:1px 8px;border-radius:4px;font-weight:700;font-size:.78rem;}
+.fs-math .bit-r1{background:rgba(0,212,170,0.2);color:var(--bit1);}
+.fs-math .bit-r0{background:rgba(255,107,107,0.2);color:var(--bit0);}
+
+/* SCROLLBARS */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hicon">🔢</div>
+  <div>
+    <h1>LBP – Local Binary Patterns Visualizer (Nhập Ma Trận 3x3)</h1>
+    <p>Thay đổi ma trận 3x3 → Chọn tham số → Xem code chạy chi tiết từng bước (Tự động hoặc Thủ công)</p>
+  </div>
+  <div class="badge">Interactive Demo</div>
+</header>
+
+<!-- TOP 3 COLUMNS -->
+<div class="main">
+
+  <!-- LEFT Column: Controls -->
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <div class="card">
+      <div class="ct"><div class="dot"></div>Tham số LBP</div>
+      <div class="cg">
+        <div class="cl">Số điểm lân cận (P)</div>
+        <div class="bg">
+          <button class="bo active" onclick="setParam('P',8,this)">P=8</button>
+          <button class="bo" onclick="setParam('P',16,this)">P=16</button>
+          <button class="bo" onclick="setParam('P',24,this)">P=24</button>
+        </div>
+      </div>
+      <div class="cg" style="display:none;">
+        <div class="cl">Bán kính (R)</div>
+        <div class="bg">
+          <button class="bo active" onclick="setParam('R',1,this)">R=1</button>
+        </div>
+      </div>
+      <div class="cg">
+        <div class="cl">Tốc độ chạy</div>
+        <input type="range" class="speed-slider" id="speed" min="1" max="5" value="3">
+        <div style="display:flex;justify-content:space-between;font-size:.64rem;color:var(--muted);margin-top:2px"><span>Chậm</span><span>Nhanh</span></div>
+      </div>
+      
+      <div style="display:flex; gap:6px; margin-top:5px;">
+        <button class="btn-run" id="btn-run" onclick="startAuto()" style="margin-top:0; flex:1;">▶ Tự Động</button>
+        <button class="btn-run" id="btn-next" onclick="handleNextStepClick()" style="margin-top:0; flex:1; background:linear-gradient(135deg,var(--accent2),#00a383);">⏭ Từng Bước</button>
+      </div>
+      <button class="btn-reset" onclick="resetAll()">↺ Reset</button>
+    </div>
+    
+    <div class="card" style="font-size:.74rem;color:var(--muted);line-height:1.7;">
+      <div class="ct"><div class="dot" style="background:var(--accent4)"></div>Mẫu ma trận nhanh</div>
+      <div class="preset-btns">
+        <button class="preset-btn" onclick="loadMatrixPreset('flat')">🌑 Vùng trơn</button>
+        <button class="preset-btn" onclick="loadMatrixPreset('v-edge')">↕️ Biên dọc</button>
+        <button class="preset-btn" onclick="loadMatrixPreset('h-edge')">↔️ Biên ngang</button>
+        <button class="preset-btn" onclick="loadMatrixPreset('corner')">📐 Góc cạnh</button>
+        <button class="preset-btn" onclick="loadMatrixPreset('random')">🎲 Ngẫu nhiên</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER Column: Matrix Input & Grid -->
+  <div class="card">
+    <div class="ct"><div class="dot" style="background:var(--accent2)"></div>1. Nhập ma trận 3×3 (Giá trị từ 0 đến 255)</div>
+    <div class="matrix-input-grid">
+      <input type="number" min="0" max="255" id="m-0-0" value="152" oninput="onMatrixInputChange(0,0)">
+      <input type="number" min="0" max="255" id="m-0-1" value="110" oninput="onMatrixInputChange(0,1)">
+      <input type="number" min="0" max="255" id="m-0-2" value="90" oninput="onMatrixInputChange(0,2)">
+      <input type="number" min="0" max="255" id="m-1-0" value="120" oninput="onMatrixInputChange(1,0)">
+      <input type="number" min="0" max="255" id="m-1-1" value="100" class="center-cell" oninput="onMatrixInputChange(1,1)">
+      <input type="number" min="0" max="255" id="m-1-2" value="85" oninput="onMatrixInputChange(1,2)">
+      <input type="number" min="0" max="255" id="m-2-0" value="95" oninput="onMatrixInputChange(2,0)">
+      <input type="number" min="0" max="255" id="m-2-1" value="80" oninput="onMatrixInputChange(2,1)">
+      <input type="number" min="0" max="255" id="m-2-2" value="75" oninput="onMatrixInputChange(2,2)">
+    </div>
+
+    <div class="ct" style="margin-top:10px;"><div class="dot" style="background:var(--accent3)"></div>2. Minh họa ma trận &amp; Vòng lân cận LBP (R=1)</div>
+    <div class="grid-section">
+      <div class="canvas-wrap">
+        <div id="pixel-grid"></div>
+        <canvas id="circle-canvas"></canvas>
+      </div>
+      <div class="grid-legend">
+        <div class="leg-item"><div class="leg-dot" style="border:2px solid var(--accent4)"></div>Tâm (gc)</div>
+        <div class="leg-item"><div class="leg-dot" style="border:2px solid var(--accent2)"></div>Lân cận đang xét</div>
+        <div class="leg-item"><span class="bit-char b1" style="width:15px;height:15px;font-size:.58rem;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;">1</span> gp≥gc</div>
+        <div class="leg-item"><span class="bit-char b0" style="width:15px;height:15px;font-size:.58rem;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;">0</span> gp&lt;gc</div>
+      </div>
+      <div class="step-desc" id="step-desc">Nhập số vào bảng 3x3 ở trên, chọn tham số P rồi nhấn <strong>▶ Tự động</strong> hoặc <strong>⏭ Từng bước</strong>.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT Column: Progress -->
+  <div class="rp">
+    <div class="card">
+      <div class="ct"><div class="dot" style="background:var(--accent3)"></div>Tiến trình</div>
+      <div class="step-bar">
+        <div class="step-item" id="step1">①Đọc tâm</div>
+        <div class="step-item" id="step2">②Lân cận</div>
+        <div class="step-item" id="step3">③Gom nhóm</div>
+        <div class="step-item" id="step4">④Kết quả</div>
+      </div>
+      <div class="ct" style="margin-top:12px;"><div class="dot" style="background:var(--accent4)"></div>Chuỗi bit nhị phân</div>
+      <div class="bit-display" id="bit-display"><span class="bit-placeholder">Chưa có dữ liệu...</span></div>
+      <div class="ct" style="margin-top:12px;"><div class="dot" style="background:var(--accent2)"></div>Phân nhóm → Thập phân</div>
+      <div class="groups-wrap" id="groups-wrap">
+        <div style="font-size:.72rem;color:var(--muted);font-style:italic">Chưa có dữ liệu...</div>
+      </div>
+    </div>
+    <div class="result-box" id="result-box">
+      <div class="result-label">🏁 Kết quả LBP</div>
+      <div class="result-value" id="result-value">–</div>
+      <div class="result-sub" id="result-sub">–</div>
+    </div>
+  </div>
+</div><!-- /main -->
+
+<!-- BOTTOM Column: Code Trace & Real Math -->
+<div class="bottom">
+
+  <!-- CODE PANEL -->
+  <div class="card">
+    <div class="ct"><div class="dot" style="background:#c792ea"></div>Luồng Code – Dòng đang thực thi được bôi vàng</div>
+    <div class="code-panel" id="code-panel">
+      <!-- Lines generated by JS -->
+    </div>
+  </div>
+
+  <!-- FORMULA PANEL -->
+  <div class="card">
+    <div class="ct"><div class="dot" style="background:var(--accent4)"></div>Công thức với số thực – Ghép số vào từng bước</div>
+    <div class="formula-panel" id="formula-panel">
+      <div class="formula-step" id="fs0">
+        <div class="fs-title">Bước 1 – Lấy mức sáng pixel trung tâm</div>
+        <div class="fs-math" id="fm0">gc = ma_tran[1, 1]</div>
+      </div>
+      <div class="formula-step" id="fs1">
+        <div class="fs-title">Bước 2a – Tọa độ điểm lân cận p</div>
+        <div class="fs-math" id="fm1">...</div>
+      </div>
+      <div class="formula-step" id="fs2">
+        <div class="fs-title">Bước 2b – Nội suy song tuyến</div>
+        <div class="fs-math" id="fm2">...</div>
+      </div>
+      <div class="formula-step" id="fs3">
+        <div class="fs-title">Bước 2c – Tạo bit nhị phân</div>
+        <div class="fs-math" id="fm3">...</div>
+      </div>
+      <div class="formula-step" id="fs4">
+        <div class="fs-title">Bước 3 – Gom nhóm → Thập phân → MAX</div>
+        <div class="fs-math" id="fm4">...</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /bottom -->
+
+<script>
+// ── STATE ──
+let P=8, R=1;
+let GRID=3, centerRow=1, centerCol=1;
+let gridData = [
+  [152, 110, 90],
+  [120, 100, 85],
+  [95, 80, 75]
+];
+let isRunning=false, animTimeout=null;
+
+// ── CODE LINES ──
+const CODE_LINES = [
+  {id:'c0', code:`<span class="cmt"># ── Bước 1: Lấy giá trị pixel trung tâm ──────────────</span>`},
+  {id:'c1', code:`<span class="vr">gc</span> <span class="op">=</span> <span class="vr">ma_tran</span><span class="op">[</span><span class="num">1</span><span class="op">,</span> <span class="num">1</span><span class="op">]</span>`},
+  {id:'c2', code:`<span class="vr">bits</span> <span class="op">=</span> <span class="op">[]</span>   <span class="cmt"># Chuỗi bit sẽ chứa P bits</span>`},
+  {id:'c3', code:``},
+  {id:'c4', code:`<span class="kw">for</span> <span class="vr">p</span> <span class="kw">in</span> <span class="fn">range</span><span class="op">(</span><span class="param">P</span><span class="op">):</span>   <span class="cmt"># Duyệt P điểm lân cận</span>`},
+  {id:'c5', code:`    <span class="cmt"># Bước 2a: Tính góc và tọa độ thực (xp, yp) trên vòng tròn R=1</span>`},
+  {id:'c6', code:`    <span class="vr">goc</span> <span class="op">=</span> <span class="num">2</span> <span class="op">*</span> <span class="vr">np.pi</span> <span class="op">*</span> <span class="vr">p</span> <span class="op">/</span> <span class="param">P</span>`},
+  {id:'c7', code:`    <span class="vr">xp</span>  <span class="op">=</span> <span class="num">1</span> <span class="op">+</span> <span class="num">1</span> <span class="op">*</span> <span class="fn">np.cos</span><span class="op">(</span><span class="vr">goc</span><span class="op">)</span>`},
+  {id:'c8', code:`    <span class="vr">yp</span>  <span class="op">=</span> <span class="num">1</span> <span class="op">-</span> <span class="num">1</span> <span class="op">*</span> <span class="fn">np.sin</span><span class="op">(</span><span class="vr">goc</span><span class="op">)</span>   <span class="cmt"># dấu trừ: Y ngược với hệ tọa độ ảnh</span>`},
+  {id:'c9', code:`    <span class="cmt"># Bước 2b: Nội suy song tuyến lấy gp từ 4 pixel lân cận</span>`},
+  {id:'c10',code:`    <span class="vr">gp</span> <span class="op">=</span> <span class="fn">noi_suy_song_tuyen</span><span class="op">(</span><span class="vr">ma_tran</span><span class="op">,</span> <span class="vr">yp</span><span class="op">,</span> <span class="vr">xp</span><span class="op">)</span>`},
+  {id:'c11',code:`    <span class="cmt"># Bước 2c: So sánh gp với gc → tạo bit nhị phân</span>`},
+  {id:'c12',code:`    <span class="vr">bits</span><span class="op">.</span><span class="fn">append</span><span class="op">(</span><span class="num">1</span> <span class="kw">if</span> <span class="vr">gp</span> <span class="op">>=</span> <span class="vr">gc</span> <span class="kw">else</span> <span class="num">0</span><span class="op">)</span>`},
+  {id:'c13',code:``},
+  {id:'c14',code:`<span class="cmt"># Bước 3: Chia nhóm 8-bit, lấy MAX</span>`},
+  {id:'c15',code:`<span class="vr">so_nhom</span> <span class="op">=</span> <span class="param">P</span> <span class="op">//</span> <span class="num">8</span>`},
+  {id:'c16',code:`<span class="kw">for</span> <span class="vr">g</span> <span class="kw">in</span> <span class="fn">range</span><span class="op">(</span><span class="vr">so_nhom</span><span class="op):</span>`},
+  {id:'c17',code:`    <span class="vr">nhom</span> <span class="op">=</span> <span class="vr">bits</span><span class="op">[</span><span class="vr">g</span><span class="op">*</span><span class="num">8</span> <span class="op">:</span> <span class="op">(</span><span class="vr">g</span><span class="op">+</span><span class="num">1</span><span class="op">)*</span><span class="num">8</span><span class="op">]</span>`},
+  {id:'c18',code:`    <span class="vr">val</span>  <span class="op">=</span> <span class="fn">sum</span><span class="op">(</span><span class="vr">b</span> <span class="op">*</span> <span class="op">(</span><span class="num">2</span><span class="op">**</span><span class="vr">i</span><span class="op">)</span> <span class="kw">for</span> <span class="vr">i</span><span class="op">,</span><span class="vr">b</span> <span class="kw">in</span> <span class="fn">enumerate</span><span class="op">(</span><span class="vr">nhom</span><span class="op">))</span>`},
+  {id:'c19',code:`<span class="kw">return</span> <span class="fn">max</span><span class="op">(</span><span class="vr">gia_tri_nhom</span><span class="op">)</span>   <span class="cmt"># Trả về LBP = MAX giữa các nhóm</span>`},
+];
+
+function buildCodePanel() {
+  const panel = document.getElementById('code-panel');
+  panel.innerHTML = '';
+  CODE_LINES.forEach((l,i)=>{
+    const div=document.createElement('div');
+    div.className='code-line'; div.id=l.id;
+    div.innerHTML=`<span class="ln">${i+1}</span><span class="lc">${l.code||' '}</span>`;
+    panel.appendChild(div);
+  });
+}
+
+function highlightCode(ids) {
+  document.querySelectorAll('.code-line').forEach(el=>{
+    el.classList.remove('active-line');
+  });
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.classList.add('active-line');
+      el.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+  });
+}
+
+function markCodeDone(ids){
+  ids.forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('done-line');});
+}
+
+// ── FORMULA HELPERS ──
+function n(v,decimals=2){return `<span class="val">${typeof v==='number'?v.toFixed(decimals):v}</span>`;}
+function r(v){return `<span class="result">${v}</span>`;}
+function eq(){return `<span class="eq"> = </span>`;}
+
+function activateFormula(fsId) {
+  document.querySelectorAll('.formula-step').forEach(el=>el.classList.remove('active'));
+  const fs=document.getElementById(fsId);
+  if(fs) fs.classList.add('active');
+}
+function doneFormula(fsId) {
+  const fs=document.getElementById(fsId);
+  if(fs){fs.classList.remove('active');fs.classList.add('done');}
+}
+
+// ── PARAMS ──
+function setParam(key,val,btn){
+  if(key==='P') P=val;
+  document.querySelectorAll(`.bg button`).forEach(b=>{
+    if(b.textContent.startsWith(key))b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  resetAll(false);
+}
+
+// ── INPUT CHANGES ──
+function onMatrixInputChange(r, c) {
+  const val = parseInt(document.getElementById(`m-${r}-${c}`).value);
+  gridData[r][c] = isNaN(val) ? 0 : Math.max(0, Math.min(255, val));
+  renderGrid();
+  resetAll(false);
+}
+
+function loadMatrixPreset(type) {
+  let preset = [];
+  if (type === 'flat') {
+    preset = [
+      [100, 100, 100],
+      [100, 100, 100],
+      [100, 100, 100]
+    ];
+  } else if (type === 'v-edge') {
+    preset = [
+      [50, 120, 200],
+      [50, 120, 200],
+      [50, 120, 200]
+    ];
+  } else if (type === 'h-edge') {
+    preset = [
+      [50, 50, 50],
+      [120, 120, 120],
+      [200, 200, 200]
+    ];
+  } else if (type === 'corner') {
+    preset = [
+      [50, 200, 200],
+      [200, 200, 200],
+      [200, 200, 200]
+    ];
+  } else if (type === 'random') {
+    preset = [
+      [Math.floor(Math.random()*220+20), Math.floor(Math.random()*220+20), Math.floor(Math.random()*220+20)],
+      [Math.floor(Math.random()*220+20), Math.floor(Math.random()*220+20), Math.floor(Math.random()*220+20)],
+      [Math.floor(Math.random()*220+20), Math.floor(Math.random()*220+20), Math.floor(Math.random()*220+20)]
+    ];
+  }
+  
+  for(let r=0; r<3; r++) {
+    for(let c=0; c<3; c++) {
+      gridData[r][c] = preset[r][c];
+      document.getElementById(`m-${r}-${c}`).value = preset[r][c];
+    }
+  }
+  renderGrid();
+  resetAll(false);
+}
+
+// ── RENDER GRID ──
+function renderGrid(){
+  const g=document.getElementById('pixel-grid'),cs=76,gp=4;
+  g.style.gridTemplateColumns=`repeat(${GRID},${cs}px)`;g.innerHTML='';
+  for(let r=0;r<GRID;r++)for(let c=0;c<GRID;c++){
+    const v=gridData[r][c],br=v/255,tc=br>.55?'#000':'#fff';
+    const cell=document.createElement('div');cell.className='pixel-cell';cell.id=`cell-${r}-${c}`;
+    cell.style.cssText=`background:rgb(${v},${v},${v});color:${tc}`;cell.textContent=v;
+    if(r===centerRow&&c===centerCol)cell.classList.add('center');
+    g.appendChild(cell);
+  }
+  const cv=document.getElementById('circle-canvas'),tot=GRID*(cs+gp)-gp;
+  cv.width=cv.height=tot;cv.style.width=cv.style.height=tot+'px';
+}
+
+// ── BILINEAR ──
+function bilinearDetail(grid,y,x){
+  const rows=grid.length,cols=grid[0].length;
+  let x0=Math.floor(x),x1=x0+1,y0=Math.floor(y),y1=y0+1;
+  x0=Math.max(0,Math.min(x0,cols-1));x1=Math.max(0,Math.min(x1,cols-1));
+  y0=Math.max(0,Math.min(y0,rows-1));y1=Math.max(0,Math.min(y1,rows-1));
+  const dx=x-Math.floor(x),dy=y-Math.floor(y);
+  const f00=grid[y0][x0],f01=grid[y0][x1],f10=grid[y1][x0],f11=grid[y1][x1];
+  const gp=(1-dy)*(1-dx)*f00+(1-dy)*dx*f01+dy*(1-dx)*f10+dy*dx*f11;
+  return {x0,x1,y0,y1,dx,dy,f00,f01,f10,f11,gp};
+}
+
+// ── CANVAS DRAWING ──
+function clearCanvas(){const c=document.getElementById('circle-canvas');c.getContext('2d').clearRect(0,0,c.width,c.height);}
+function drawCircle(donePoints,activeDot){
+  clearCanvas();
+  const canvas=document.getElementById('circle-canvas'),ctx=canvas.getContext('2d');
+  const cs=76,gp=4,ct=cs+gp,cx=centerCol*ct+cs/2,cy=centerRow*ct+cs/2,radius=R*ct;
+  ctx.beginPath();ctx.arc(cx,cy,radius,0,2*Math.PI);ctx.strokeStyle='rgba(108,99,255,.4)';ctx.lineWidth=1.8;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
+  donePoints.forEach(({px,py,bit})=>{ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,py);ctx.strokeStyle=bit?'rgba(0,212,170,.35)':'rgba(255,107,107,.35)';ctx.lineWidth=1.2;ctx.stroke();ctx.beginPath();ctx.arc(px,py,5,0,2*Math.PI);ctx.fillStyle=bit?'rgba(0,212,170,.7)':'rgba(255,107,107,.7)';ctx.fill();});
+  if(activeDot){const{px,py,bit}=activeDot;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,py);ctx.strokeStyle=bit!==null?(bit?'#00d4aa':'#ff6b6b'):'#a89fff';ctx.lineWidth=2.2;ctx.stroke();ctx.beginPath();ctx.arc(px,py,8,0,2*Math.PI);ctx.fillStyle=bit!==null?(bit?'rgba(0,212,170,.9)':'rgba(255,107,107,.9)'):'rgba(168,159,255,.9)';ctx.fill();}
+}
+
+// ── STEP CONTROLS ──
+let isManualMode = false;
+let stepResolver = null;
+
+function triggerNextStep() {
+  if (stepResolver) {
+    const btnNext = document.getElementById('btn-next');
+    btnNext.style.boxShadow = 'none';
+    btnNext.disabled = true;
+    const resolve = stepResolver;
+    stepResolver = null;
+    resolve();
+  }
+}
+
+function startAuto() {
+  isManualMode = false;
+  runLBP();
+}
+
+function handleNextStepClick() {
+  if (!isRunning) {
+    isManualMode = true;
+    runLBP();
+  } else {
+    triggerNextStep();
+  }
+}
+
+async function waitOrDelay(customMs = null) {
+  if (isManualMode) {
+    const btnNext = document.getElementById('btn-next');
+    btnNext.disabled = false;
+    btnNext.textContent = '⏭ Bước Tiếp';
+    btnNext.style.boxShadow = '0 0 10px rgba(0, 212, 170, 0.6)';
+    return new Promise(resolve => {
+      stepResolver = resolve;
+    });
+  } else {
+    document.getElementById('btn-next').disabled = true;
+    document.getElementById('btn-next').style.boxShadow = 'none';
+    const ms = customMs !== null ? customMs : getDelay();
+    return delay(ms);
+  }
+}
+
+// ── RESET ──
+function resetAll(clr=true){
+  if(animTimeout)clearTimeout(animTimeout);isRunning=false;
+  if (clr) {
+    isManualMode=false;
+    stepResolver=null;
+  }
+  document.querySelectorAll('.pixel-cell').forEach(el=>{el.classList.remove('neighbor-active','neighbor-done');const b=el.querySelector('.bit-badge');if(b)b.remove();});
+  document.getElementById('bit-display').innerHTML='<span class="bit-placeholder">Chưa có dữ liệu...</span>';
+  document.getElementById('groups-wrap').innerHTML='<div style="font-size:.72rem;color:var(--muted);font-style:italic">Chưa có dữ liệu...</div>';
+  document.getElementById('result-box').style.display='none';
+  document.getElementById('step-desc').innerHTML=`Nhập số vào bảng 3x3 ở trên, chọn tham số P rồi nhấn <strong>▶ Tự động</strong> hoặc <strong>⏭ Từng bước</strong>.`;
+  ['step1','step2','step3','step4'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active','done');});
+  clearCanvas();buildCodePanel();
+  document.querySelectorAll('.formula-step').forEach(el=>{el.classList.remove('active','done');});
+  ['fm0','fm1','fm2','fm3','fm4'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='...';});
+  document.getElementById('fm0').textContent='gc = ma_tran[1, 1]';
+
+  const btnRun = document.getElementById('btn-run');
+  const btnNext = document.getElementById('btn-next');
+  btnRun.disabled = false;
+  btnNext.disabled = false;
+  btnNext.textContent = '⏭ Từng Bước';
+  btnNext.style.boxShadow = 'none';
+}
+
+function getDelay(){return [1400,1000,700,400,180][parseInt(document.getElementById('speed').value)-1];}
+function delay(ms){return new Promise(resolve=>{animTimeout=setTimeout(resolve,ms);});}
+
+function setStep(n){
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById(`step${i}`);
+    if(el){
+      if(i<n){el.classList.remove('active');el.classList.add('done');}
+      else if(i===n){el.classList.add('active');el.classList.remove('done');}
+      else el.classList.remove('active','done');
+    }
+  }
+}
+
+// ── MAIN ANIMATION ──
+async function runLBP(){
+  if(isRunning)return;
+  resetAll(false);isRunning=true;
+  document.getElementById('btn-run').disabled=true;
+  if (isManualMode) {
+    document.getElementById('btn-next').textContent = '⏭ Bắt đầu';
+  } else {
+    document.getElementById('btn-next').disabled = true;
+  }
+
+  const gc=gridData[centerRow][centerCol];
+  const cs=76,gp=4,ct=cs+gp;
+
+  // ── STEP 1: SELECT CENTER ──
+  setStep(1);
+  highlightCode(['c0','c1','c2']);
+  activateFormula('fs0');
+  document.getElementById('fm0').innerHTML=
+    `gc ${eq()} ma_tran[1, 1] ${eq()} ${r(gc)}`;
+  document.getElementById('step-desc').innerHTML=
+    `📍 Pixel trung tâm: gc = ma_tran[1,1]<br>Mức sáng trung tâm <strong>gc = <span style="color:var(--accent4)">${gc}</span></strong>`;
+  await waitOrDelay();
+  if(!isRunning)return;
+  doneFormula('fs0');markCodeDone(['c0','c1','c2']);
+
+  // ── STEP 2: NEIGHBORS ──
+  setStep(2);
+  highlightCode(['c4']);
+  document.getElementById('bit-display').innerHTML='';
+  const bits=[],donePoints=[];
+
+  for(let p=0;p<P;p++){
+    if(!isRunning)break;
+    const angle=2*Math.PI*p/P;
+    const xp=centerCol+R*Math.cos(angle),yp=centerRow-R*Math.sin(angle);
+    const det=bilinearDetail(gridData,yp,xp);
+    const gp_val=Math.round(det.gp*10)/10;
+    const bit=gp_val>=gc?1:0;
+    bits.push(bit);
+
+    // Step 2a: coordinates
+    highlightCode(['c5','c6','c7','c8']);
+    activateFormula('fs1');
+    document.getElementById('fm1').innerHTML=
+      `p ${eq()} ${n(p,0)}, P ${eq()} ${n(P,0)}, R ${eq()} ${n(R,0)}<br>`+
+      `goc ${eq()} 2π × ${n(p,0)} / ${n(P,0)} ${eq()} ${r(angle.toFixed(4))} rad (${r((angle*180/Math.PI).toFixed(1))}°)<br>`+
+      `xp ${eq()} 1 + 1 × cos(${(angle*180/Math.PI).toFixed(1)}°) ${eq()} ${r(xp.toFixed(3))}<br>`+
+      `yp ${eq()} 1 − 1 × sin(${(angle*180/Math.PI).toFixed(1)}°) ${eq()} ${r(yp.toFixed(3))}`;
+
+    const canvasPX=xp*ct+cs/2,canvasPY=yp*ct+cs/2;
+    drawCircle(donePoints,{px:canvasPX,py:canvasPY,bit:null});
+    await waitOrDelay(getDelay()*.4);
+    if(!isRunning)return;
+
+    // Step 2b: bilinear interpolation
+    highlightCode(['c9','c10']);
+    activateFormula('fs2');
+    
+    // Check if the point falls exactly on integer pixel coordinates to explain simply
+    let mathExplanation = '';
+    const isIntegerCoord = (Math.abs(xp - Math.round(xp)) < 1e-5) && (Math.abs(yp - Math.round(yp)) < 1e-5);
+    if (isIntegerCoord) {
+      mathExplanation = `Điểm lân cận nằm chính xác trên ô lưới: <br>`+
+        `gp ${eq()} ma_tran[${Math.round(yp)}, ${Math.round(xp)}] ${eq()} ${r(gp_val)}`;
+    } else {
+      mathExplanation = `x0=${n(det.x0,0)}, x1=${n(det.x1,0)}, y0=${n(det.y0,0)}, y1=${n(det.y1,0)}<br>`+
+        `dx ${eq()} ${n(det.dx,3)},  dy ${eq()} ${n(det.dy,3)}<br>`+
+        `f00=${n(det.f00,0)} f01=${n(det.f01,0)} f10=${n(det.f10,0)} f11=${n(det.f11,0)}<br>`+
+        `gp ${eq()} (1−${n(det.dy,2)})(1−${n(det.dx,2)})×${n(det.f00,0)}<br>`+
+        `   + (1−${n(det.dy,2)})×${n(det.dx,2)}×${n(det.f01,0)}<br>`+
+        `   + ${n(det.dy,2)}×(1−${n(det.dx,2)})×${n(det.f10,0)}<br>`+
+        `   + ${n(det.dy,2)}×${n(det.dx,2)}×${n(det.f11,0)} ${eq()} ${r(gp_val)}`;
+    }
+    
+    document.getElementById('fm2').innerHTML = mathExplanation;
+    await waitOrDelay(getDelay()*.4);
+    if(!isRunning)return;
+
+    // Step 2c: thresholding (bit creation)
+    highlightCode(['c11','c12']);
+    activateFormula('fs3');
+    document.getElementById('fm3').innerHTML=
+      `bit = 1 <span class="kw">if</span> gp ≥ gc <span class="kw">else</span> 0<br>`+
+      `bit = 1 <span class="kw">if</span> ${n(gp_val)} ${bit?'≥':'<'} ${n(gc,0)}<br>`+
+      `bit ${eq()} <span class="bit-result ${bit?'bit-r1':'bit-r0'}">${bit}</span> <span style="color:var(--muted)">(${bit?'gp ≥ gc ✓':'gp < gc ✗'})</span>`;
+
+    drawCircle(donePoints,{px:canvasPX,py:canvasPY,bit});
+
+    const nr=Math.round(yp),nc=Math.round(xp);
+    const prev=document.querySelector('.pixel-cell.neighbor-active');
+    if(prev){prev.classList.remove('neighbor-active');prev.classList.add('neighbor-done');}
+    if(nr>=0&&nr<GRID&&nc>=0&&nc<GRID){
+      const cellEl=document.getElementById(`cell-${nr}-${nc}`);
+      if(cellEl&&!cellEl.classList.contains('center')){
+        cellEl.classList.add('neighbor-active');
+        const badge=document.createElement('div');badge.className=`bit-badge ${bit?'bit-1':'bit-0'}`;badge.textContent=bit;cellEl.appendChild(badge);
+      }
+    }
+
+    document.getElementById('step-desc').innerHTML=
+      `🔄 Lân cận <strong>p=${p}</strong>/${P-1} | Góc ${(angle*180/Math.PI).toFixed(0)}° | gp=<strong style="color:${bit?'var(--bit1)':'var(--bit0)'}">${gp_val}</strong> ${bit?'≥':'<'} gc=<strong style="color:var(--accent4)">${gc}</strong> → bit=<strong style="color:${bit?'var(--bit1)':'var(--bit0)'}">${bit}</strong>`;
+
+    const bitEl=document.createElement('div');bitEl.className=`bit-char ${bit?'b1':'b0'}`;bitEl.textContent=bit;
+    document.getElementById('bit-display').appendChild(bitEl);
+    if((p+1)%8===0&&p!==P-1){const sep=document.createElement('div');sep.className='bit-sep';document.getElementById('bit-display').appendChild(sep);}
+    donePoints.push({px:canvasPX,py:canvasPY,bit});
+    await waitOrDelay();
+    if(!isRunning)return;
+  }
+
+  const lastA=document.querySelector('.pixel-cell.neighbor-active');
+  if(lastA){lastA.classList.remove('neighbor-active');lastA.classList.add('neighbor-done');}
+  if(!isRunning)return;
+  doneFormula('fs1');doneFormula('fs2');doneFormula('fs3');
+  markCodeDone(['c4','c5','c6','c7','c8','c9','c10','c11','c12']);
+
+  // ── STEP 3: GROUPING ──
+  setStep(3);
+  highlightCode(['c14','c15','c16','c17','c18']);
+  activateFormula('fs4');
+  const soNhom=P/8;
+  const groupsWrap=document.getElementById('groups-wrap');groupsWrap.innerHTML='';
+  document.getElementById('step-desc').innerHTML=
+    `📦 Chia <strong>${P} bit</strong> → <strong>${soNhom} nhóm</strong> × 8 bit → thập phân → lấy <strong style="color:var(--accent4)">MAX</strong>`;
+  const groupVals=[];
+  let fm4html='';
+
+  for(let g=0;g<soNhom;g++){
+    const gb=bits.slice(g*8,(g+1)*8);
+    let val=0;gb.forEach((b,i)=>{val+=b*Math.pow(2,i);});groupVals.push(val);
+    const termStr=gb.map((b,i)=>`${b}×${Math.pow(2,i)}`).join(' + ');
+    fm4html+=`Nhóm ${g+1}: [${gb.join('')}] → ${termStr} ${eq()} ${n(val,0)}<br>`;
+
+    const card=document.createElement('div');card.className='group-card active-group';card.id=`gcard-${g}`;
+    const lbl=document.createElement('div');lbl.className='group-label';lbl.textContent=`Nhóm ${g+1}`;
+    const bDiv=document.createElement('div');bDiv.className='group-bits';
+    gb.forEach(b=>{const bd=document.createElement('div');bd.className=`group-bit ${b?'gb1':'gb0'}`;bd.textContent=b;bDiv.appendChild(bd);});
+    const arr=document.createElement('div');arr.className='group-arrow';arr.textContent='→';
+    const vDiv=document.createElement('div');vDiv.className='group-val';vDiv.style.color='var(--text)';vDiv.textContent=val;
+    card.appendChild(lbl);card.appendChild(bDiv);card.appendChild(arr);card.appendChild(vDiv);
+    groupsWrap.appendChild(card);
+    document.getElementById('fm4').innerHTML=fm4html;
+    await waitOrDelay(getDelay()*.7);
+    if(!isRunning)return;
+  }
+
+  await waitOrDelay(getDelay()*.3);
+  if(!isRunning)return;
+  highlightCode(['c19']);
+  const maxVal=Math.max(...groupVals);
+  fm4html+=`<br><span class="kw">return</span> <span class="fn">max</span>(${groupVals.map(v=>v===maxVal?`<span class="result">${v}</span>`:v).join(', ')}) ${eq()} <span class="result" style="font-size:1.1em;font-weight:700;">${maxVal}</span>`;
+  document.getElementById('fm4').innerHTML=fm4html;
+
+  groupVals.forEach((v,g)=>{
+    const card=document.getElementById(`gcard-${g}`);
+    if(v===maxVal){
+      card.classList.add('max-group');card.classList.remove('active-group');
+      const b=document.createElement('span');b.className='max-badge';b.textContent='MAX';card.appendChild(b);
+      card.querySelector('.group-val').style.color='var(--accent4)';
+    } else {
+      card.style.opacity='.45';
+    }
+  });
+  if(!isRunning)return;
+  doneFormula('fs4');markCodeDone(['c14','c15','c16','c17','c18','c19']);
+
+  // ── STEP 4: RESULT ──
+  setStep(4);
+  await waitOrDelay(getDelay()*.4);
+  if(!isRunning)return;
+  document.getElementById('result-box').style.display='block';
+  document.getElementById('result-value').textContent=maxVal;
+  document.getElementById('result-sub').innerHTML=
+    `LBP(1,1) | gc=${gc} | P=${P}, R=${R} | <strong>MAX = ${maxVal}</strong>`;
+  document.getElementById('step-desc').innerHTML=
+    `✅ <strong>Hoàn thành!</strong> LBP = <strong style="color:var(--accent2)">${maxVal}</strong>`;
+  
+  isRunning=false;
+  isManualMode=false;
+  document.getElementById('btn-run').disabled=false;
+  document.getElementById('btn-next').disabled=false;
+  document.getElementById('btn-next').textContent='⏭ Từng Bước';
+  document.getElementById('btn-next').style.boxShadow = 'none';
+}
+
+// ── INIT ──
+renderGrid();
+buildCodePanel();
+</script>
+</body>
+</html>
